@@ -1,0 +1,76 @@
+1. Veritabanı Yapılandırması
+Öncelikle, giriş denemelerini izlemek için bir veritabanı tablosu oluşturun. Örneğin, MySQL kullanıyorsanız şu SQL komutunu kullanabilirsiniz:
+
+sql
+Kodu kopyala
+CREATE TABLE login_attempts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    mac_address VARCHAR(17),
+    attempt_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+2. PHP Koduyla MAC Adresini İzleme
+Web tabanlı bir uygulamada PHP kullanarak MAC adresini izlemek zor olabilir çünkü MAC adresi genellikle HTTP üzerinden erişilemez. Ancak, yerel ağda çalışan bir uygulamada, kullanıcıların MAC adresini tespit etmek ve izlemek mümkün olabilir.
+
+MAC Adresini Alma (Yerel Ağda)
+MAC adresini almak için, genellikle yerel bir ağda çalışan bir araç veya betik kullanmanız gerekir. Örneğin, Linux tabanlı bir sistemde ifconfig veya ip link komutları kullanılabilir. Ancak, bu komutları PHP'den çalıştırmak güvenlik riskleri taşıyabilir.
+
+Yine de, MAC adresini bir kullanıcı tarafından uygulamanıza sağlayabilirsiniz. Kullanıcılar, MAC adresini form aracılığıyla girebilirler (bu, sadece bilgi toplama amacıyla yapılır; gerçek MAC adresini almak güvenlik nedenleriyle zor olabilir).
+
+PHP ile Giriş Denemelerini İzleme
+Aşağıdaki örnek, PHP kullanarak bir kullanıcının MAC adresini ve giriş denemelerini izleyen basit bir uygulamayı göstermektedir:
+
+php
+Kodu kopyala
+<?php
+// Veritabanı bağlantısını oluşturun
+$servername = "localhost";
+$username = "root";
+$password = "";
+$dbname = "mydatabase";
+
+$conn = new mysqli($servername, $username, $password, $dbname);
+
+// Bağlantıyı kontrol edin
+if ($conn->connect_error) {
+    die("Connection failed: " . $conn->connect_error);
+}
+
+// Kullanıcının MAC adresini alın (bu örnekte bir formdan geliyor)
+$mac_address = isset($_POST['mac_address']) ? $_POST['mac_address'] : '';
+
+// Giriş denemelerini sayın
+$sql = "SELECT COUNT(*) as attempt_count FROM login_attempts WHERE mac_address = ? AND attempt_time > NOW() - INTERVAL 24 HOUR";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param('s', $mac_address);
+$stmt->execute();
+$result = $stmt->get_result();
+$row = $result->fetch_assoc();
+
+if ($row['attempt_count'] >= 5) {
+    echo "5 giriş denemesinden sonra geçici olarak giriş yapamazsınız.";
+    exit();
+}
+
+// Giriş denemesini kaydedin
+$sql = "INSERT INTO login_attempts (mac_address) VALUES (?)";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param('s', $mac_address);
+$stmt->execute();
+
+// Kullanıcı giriş işlemi burada yapılır
+echo "Giriş başarılı!";
+?>
+HTML Form Örneği:
+
+html
+Kodu kopyala
+<form action="login.php" method="post">
+    <label for="mac_address">MAC Adresi:</label>
+    <input type="text" id="mac_address" name="mac_address" required>
+    <input type="submit" value="Giriş Yap">
+</form>
+3. Güvenlik ve İyileştirme
+MAC Adresi Doğrulama: MAC adresleri genellikle HTTP üzerinden alınamaz, bu yüzden kullanıcının doğru MAC adresini girmesi gerekebilir. Ayrıca, MAC adresi taklit edilebilir, bu yüzden güvenlik için başka önlemler de alınmalıdır.
+Zaman Aralıkları: Örnekte denemeleri 24 saat içinde saydık. İhtiyacınıza göre bu süreyi değiştirebilirsiniz.
+Güvenlik Riskleri: MAC adresi ve IP adresi gibi bilgileri güvenlik amacıyla kullanırken, verilerin şifrelenmiş olduğundan ve güvenli bir şekilde saklandığından emin olun.
+Bu yöntemleri uygulayarak, yerel bir ağda çalışan uygulamanızda MAC adresine dayalı bir giriş denemesi sınırlaması yapabilirsiniz. Ancak, daha güvenli ve kullanıcı dostu yöntemler için IP adresi veya oturum kimliği gibi alternatif yöntemler de kullanabilirsiniz.
